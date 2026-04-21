@@ -14,7 +14,7 @@ def check_env():
                           "\nConan home is not properly configured"
                           "\nMake sure to run the env/setup.sh|bat script first"
                           "\n========================================================\n")
-    
+
     print("CONAN_HOME:", os.getenv('CONAN_HOME'))
 
 def parse():
@@ -25,17 +25,34 @@ def parse():
     parser.add_argument("-d", "--directories", help="Specific conanfiles directories", nargs='*', required=False)
     return parser.parse_args()
 
-def profile(profile_name):
-    subprocess.run([
-        'conan', 'config', 'install',
-        profile_name, f'--target-folder={os.getenv('CONAN_HOME')}/profiles'
+def resolve_profile(compiler):
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    platform_map = {
+        'gcc': 'linux-gcc',
+        'clang': 'linux-clang',
+        'visual_studio': 'windows-msvc',
+    }
+    profile_file = platform_map.get(compiler)
+    if not profile_file:
+        raise ValueError(f"Unknown compiler: {compiler}")
 
-    ], check=True)
+    source = os.path.join(script_dir, 'profiles', profile_file)
+    if not os.path.isfile(source):
+        raise FileNotFoundError(f"Profile not found: {source}")
+
+    dest_dir = os.path.join(os.getenv("CONAN_HOME"), 'profiles')
+    os.makedirs(dest_dir, exist_ok=True)
+    dest = os.path.join(dest_dir, profile_file)
+
+    import shutil
+    shutil.copy2(source, dest)
+    print(f"Installed profile: {source} -> {dest}")
+    return profile_file
 
 def install(profile_name, build_type):
     subprocess.run([
-        'conan', 'install', '.', 
-        f'--settings', f'build_type={build_type}',
+        'conan', 'install', '.',
+        '--settings', f'build_type={build_type}',
         '--profile:all', profile_name,
         '--build', 'missing'
     ], check=True)
@@ -43,8 +60,7 @@ def install(profile_name, build_type):
 def main():
     check_env()
     args = parse()
-    profile_name = f'profile_{args.compiler+args.compiler_version}'
-    profile(profile_name)
+    profile_name = resolve_profile(args.compiler)
     install(profile_name, args.build_type)
 
 if __name__ == '__main__':

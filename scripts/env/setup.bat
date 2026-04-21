@@ -15,8 +15,8 @@ call .venv\Scripts\activate.bat
 :: Upgrade pip
 python -m pip install --upgrade pip
 
-:: Install the required packages
-pip install -r scripts/requirements.txt
+:: Install the required packages (resolved relative to this script's location)
+pip install -r "%~dp0..\requirements.txt"
 
 :: Install pre-commit hooks
 pre-commit install
